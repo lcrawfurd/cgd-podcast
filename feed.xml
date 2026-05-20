@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>CGD Blog (Audio)</title>
+    <description>Center for Global Development blog posts, converted to audio.</description>
+    <link>https://www.cgdev.org/blog</link>
+    <language>en-gb</language>
+    <itunes:author>Center for Global Development</itunes:author>
+    <itunes:category text="Society &amp; Culture"/>
+    
+    <item>
+      <title>Missing the Forest for the Trees: School Meals, MDBs, and the Limits of Siloed Development Finance</title>
+      <description></description>
+      <link>https://www.cgdev.org/blog/missing-forest-trees-school-meals-mdbs-and-limits-siloed-development-finance</link>
+      <pubDate>Tue, 20 May 2026 13:48:00 +0000</pubDate>
+      <guid isPermaLink="false">https://www.cgdev.org/blog/missing-forest-trees-school-meals-mdbs-and-limits-siloed-development-finance</guid>
+      <enclosure url="https://lcrawfurd.github.io/cgd-podcast/audio/20260520-missing-the-forest-for-the-trees-school-meals-mdbs-and-the-l.mp3" type="audio/mpeg" length="1834560"/>
+    </item>
+    <item>
+      <title>Too Cavalier About Conflicts of Interest at the World Bank?</title>
+      <description></description>
+      <link>https://www.cgdev.org/blog/too-cavalier-about-conflicts-interest-world-bank</link>
+      <pubDate>Tue, 20 May 2026 13:46:00 +0000</pubDate>
+      <guid isPermaLink="false">https://www.cgdev.org/blog/too-cavalier-about-conflicts-interest-world-bank</guid>
+      <enclosure url="https://lcrawfurd.github.io/cgd-podcast/audio/20260520-too-cavalier-about-conflicts-of-interest-at-the-world-bank.mp3" type="audio/mpeg" length="4038912"/>
+    </item>
+    <item>
+      <title>Three Issues to Watch at WHA79</title>
+      <description></description>
+      <link>https://www.cgdev.org/blog/three-issues-watch-wha79-who-funding-prioritisation-and-leadership-global-health-architecture</link>
+      <pubDate>Tue, 20 May 2026 13:38:00 +0000</pubDate>
+      <guid isPermaLink="false">https://www.cgdev.org/blog/three-issues-watch-wha79-who-funding-prioritisation-and-leadership-global-health-architecture</guid>
+      <enclosure url="https://lcrawfurd.github.io/cgd-podcast/audio/20260520-three-issues-to-watch-at-wha79.mp3" type="audio/mpeg" length="1772640"/>
+    </item>
+  </channel>
+</rss>
