@@ -74,18 +74,35 @@ async def get_blog_entries(browser):
                 entries.append({"url": url, "title": title or href.split("/")[-1].replace("-", " ").title()})
     return entries
 
-async def fetch_article_text(browser, url):
-    """Fetch and clean article body text."""
+async def fetch_article(browser, url):
+    """Fetch article body text and authors. Returns (text, authors_str)."""
     try:
         html = await get_html(browser, url)
+        soup_full = BeautifulSoup(html, "html.parser")
+
+        # Extract authors — CGD uses various markup; try common patterns
+        authors = []
+        for sel in ["a.expert-link", ".field--name-field-author a",
+                    ".views-field-title a", ".author-name", ".byline a"]:
+            found = [a.get_text(strip=True) for a in soup_full.select(sel)]
+            if found:
+                authors = found
+                break
+        # Fallback: look for "By Name" text near the top
+        if not authors:
+            for tag in soup_full.find_all(string=re.compile(r"^By\s+\w")):
+                authors = [tag.strip().lstrip("By").strip()]
+                break
+        authors_str = ", ".join(authors) if authors else ""
+
         doc = Document(html)
         soup = BeautifulSoup(doc.summary(), "html.parser")
         text = soup.get_text(separator=" ", strip=True)
         text = re.sub(r"\s+", " ", text).strip()
-        return text[:MAX_CHARS]
+        return text[:MAX_CHARS], authors_str
     except Exception as e:
         print(f"  ✗ fetch failed: {e}")
-        return None
+        return None, ""
 
 async def tts(text, path):
     communicate = edge_tts.Communicate(text, VOICE)
@@ -163,11 +180,14 @@ async def main():
             title = entry["title"]
             print(f"\nProcessing: {title}")
 
-            text = await fetch_article_text(browser, url)
+            text, authors = await fetch_article(browser, url)
             if not text:
                 continue
 
-            full_text = f"{title}. {text}"
+            by_line = f" by {authors}" if authors else ""
+            intro = f"This is an automated reading of a blog post from the Center for Global Development: {title}{by_line}."
+            outro = "Thank you for listening to this audio from the Center for Global Development. For more on our research, visit cgdev.org."
+            full_text = f"{intro} {text} {outro}"
             filename = make_filename(title)
             audio_path = AUDIO_DIR / filename
 
