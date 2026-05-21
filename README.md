@@ -2,10 +2,26 @@
 
 Automatically converts [Center for Global Development](https://www.cgdev.org/blog) blog posts into an MP3 podcast feed, updated daily.
 
-**Subscribe in Pocket Casts (or any podcast app):**
+**Subscribe in Pocket Casts (or any podcast app that supports custom RSS feeds):**
 ```
 https://lcrawfurd.github.io/cgd-podcast/feed.xml
 ```
+
+### Which apps work?
+
+This is a self-hosted RSS feed, not a registered podcast. Most dedicated podcast apps let you subscribe directly by pasting a feed URL — but **Spotify and Apple Podcasts do not**:
+
+| App | Custom RSS? | How to add |
+|-----|------------|------------|
+| **Pocket Casts** ✓ | Yes | Tap Discover → paste URL in search bar → Subscribe |
+| **Overcast** ✓ | Yes | Add Feed → paste URL |
+| **AntennaPod** ✓ | Yes | Add Podcast → paste URL |
+| **Podcast Addict** ✓ | Yes | Add → RSS feed → paste URL |
+| **Castro** ✓ | Yes | Search → paste URL |
+| **Apple Podcasts** ✗ | No | Requires submission via [podcastsconnect.apple.com](https://podcastsconnect.apple.com) |
+| **Spotify** ✗ | No | Requires submission via [podcasters.spotify.com](https://podcasters.spotify.com) |
+
+Pocket Casts is recommended — it handles unlisted/private RSS feeds well.
 
 ## How it works
 
