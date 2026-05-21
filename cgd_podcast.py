@@ -119,7 +119,7 @@ def generate_feed(episodes):
     for ep in sorted(episodes.values(), key=lambda e: e["pub_date"], reverse=True):
         items += f"""
     <item>
-      <title>{x(ep['title'])}</title>
+      <title>{x(ep['title'] + (' — ' + ep['authors'] if ep.get('authors') else ''))}</title>
       <description>{x(ep.get('summary', ''))}</description>
       <link>{x(ep['url'])}</link>
       <pubDate>{ep['pub_date']}</pubDate>
@@ -201,6 +201,7 @@ async def main():
 
             processed[url] = {
                 "title": title,
+                "authors": authors,
                 "url": url,
                 "filename": filename,
                 "size": size,
