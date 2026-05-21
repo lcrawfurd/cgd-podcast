@@ -50,4 +50,3 @@ Key settings at the top of `cgd_podcast.py`:
 ## Notes
 
 - Audio files are stored in `audio/` and tracked in `processed.json`
-- This is a personal tool for private listening; not affiliated with CGD
