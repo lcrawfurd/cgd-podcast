@@ -243,5 +243,14 @@
     "size": 3465072,
     "pub_date": "Sat, 06 Jun 2026 09:36:49 -0000",
     "summary": "The OECD’s Development Assistance Committee (DAC) is discussing changes to the rules on which countries are eligible to receive official development assistance (ODA), the primary measure of foreign aid. Currently, countries’ eligibility is based solely on whether they are “high-income” according to "
+  },
+  "https://www.cgdev.org/blog/continuous-improvement-through-evaluation-building-better-and-better-generative-ai": {
+    "title": "Continuous Improvement Through Evaluation: Building Better and Better Generative AI Interventions",
+    "authors": "",
+    "url": "https://www.cgdev.org/blog/continuous-improvement-through-evaluation-building-better-and-better-generative-ai",
+    "filename": "20260608-continuous-improvement-through-evaluation-building-better-an.mp3",
+    "size": 2919888,
+    "pub_date": "Mon, 08 Jun 2026 18:03:12 -0000",
+    "summary": "How do you evaluate a development intervention based on generative AI, like a tutoring tool or a chatbot to provide advice to farmers? A technical lead might say that evaluating a generative AI tool means getting the model to perform well, putting safeguards in place, and shipping it. An economist m"
   }
 }
