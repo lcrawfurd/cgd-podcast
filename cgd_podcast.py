@@ -14,7 +14,8 @@ import re
 import subprocess
 import time
 from datetime import datetime
-from email.utils import formatdate
+from email.utils import formatdate, parsedate_to_datetime
+from datetime import timezone
 from pathlib import Path
 
 import edge_tts
@@ -40,6 +41,14 @@ CF_WAIT_SECS  = 10   # seconds to wait for Cloudflare to pass
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
+
+def pub_ts(d):
+    """Sortable timestamp from an RFC 2822 date; naive dates are treated as UTC."""
+    dt = parsedate_to_datetime(d)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
 
 def load_processed():
     if PROCESSED.exists():
@@ -75,7 +84,7 @@ async def get_blog_entries(browser):
     return entries
 
 async def fetch_article(browser, url):
-    """Fetch article body text and authors. Returns (text, authors_str)."""
+    """Fetch article body text, authors, and pub date. Returns (text, authors_str, date_str)."""
     try:
         html = await get_html(browser, url)
         soup_full = BeautifulSoup(html, "html.parser")
@@ -95,14 +104,46 @@ async def fetch_article(browser, url):
                 break
         authors_str = ", ".join(authors) if authors else ""
 
+        # Extract publication date
+        date_str = ""
+        # Try <time datetime="..."> first
+        time_tag = soup_full.find("time", attrs={"datetime": True})
+        if time_tag:
+            raw = time_tag["datetime"][:10]  # "YYYY-MM-DD"
+            try:
+                from datetime import date as _date
+                d = _date.fromisoformat(raw)
+                date_str = d.strftime("%-d %B %Y")  # e.g. "14 May 2026"
+            except ValueError:
+                date_str = raw
+        # Fallback: meta tag
+        if not date_str:
+            meta = soup_full.find("meta", property="article:published_time")
+            if meta and meta.get("content"):
+                raw = meta["content"][:10]
+                try:
+                    from datetime import date as _date
+                    d = _date.fromisoformat(raw)
+                    date_str = d.strftime("%-d %B %Y")
+                except ValueError:
+                    pass
+        # Fallback: visible date text
+        if not date_str:
+            for sel in [".date-display-single", ".field--name-field-date",
+                        ".submitted", ".post-date", "span.date"]:
+                tag = soup_full.select_one(sel)
+                if tag:
+                    date_str = tag.get_text(strip=True)
+                    break
+
         doc = Document(html)
         soup = BeautifulSoup(doc.summary(), "html.parser")
         text = soup.get_text(separator=" ", strip=True)
         text = re.sub(r"\s+", " ", text).strip()
-        return text[:MAX_CHARS], authors_str
+        return text[:MAX_CHARS], authors_str, date_str
     except Exception as e:
         print(f"  ✗ fetch failed: {e}")
-        return None, ""
+        return None, "", ""
 
 async def tts(text, path):
     communicate = edge_tts.Communicate(text, VOICE)
@@ -116,7 +157,7 @@ def make_filename(title):
 
 def generate_feed(episodes):
     items = ""
-    for ep in sorted(episodes.values(), key=lambda e: e["pub_date"], reverse=True):
+    for ep in sorted(episodes.values(), key=lambda e: pub_ts(e["pub_date"]), reverse=True):
         items += f"""
     <item>
       <title>{x(ep['title'] + (' — ' + ep['authors'] if ep.get('authors') else ''))}</title>
@@ -142,8 +183,13 @@ def generate_feed(episodes):
 
 def git_push(new_files, commit_msg):
     os.chdir(BASE_DIR)
-    for f in new_files:
-        subprocess.run(["git", "add", str(f)], check=True)
+    # Stage the episodes the feed lists, plus deletions of pruned files.
+    # (Adding each new file failed when pruning had already removed it.)
+    in_feed = sorted(set(re.findall(r'audio/([^"<]+\.mp3)', FEED_FILE.read_text())))
+    for name in in_feed:
+        if (AUDIO_DIR / name).exists():
+            subprocess.run(["git", "add", str(AUDIO_DIR / name)], check=True)
+    subprocess.run(["git", "add", "-u", "audio"], check=True)
     subprocess.run(["git", "add", "processed.json", "feed.xml"], check=True)
     result = subprocess.run(["git", "diff", "--cached", "--quiet"])
     if result.returncode == 0:
@@ -159,12 +205,40 @@ async def main():
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     processed = load_processed()
 
+    # Clear stale Chrome singleton lock files that prevent startup after a crash
+    for lock in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+        p = Path(CHROME_PROFILE) / lock
+        if p.exists() or p.is_symlink():
+            p.unlink()
+
+    # Kill any leftover Chrome still holding this profile from an earlier run;
+    # a stale instance makes the DevTools handshake time out.
+    subprocess.run(["pkill", "-f", CHROME_PROFILE], check=False)
+    await asyncio.sleep(2)
+
+    # Try to start browser; the last attempt falls back to headless mode,
+    # which works when no GUI session is available to the scheduled job.
     print("Starting browser…")
-    browser = await nodriver.start(
-        browser_executable_path=CHROME,
-        user_data_dir=CHROME_PROFILE,
-        headless=False,
-    )
+    for attempt in range(3):
+        try:
+            browser = await nodriver.start(
+                browser_executable_path=CHROME,
+                user_data_dir=CHROME_PROFILE,
+                headless=(attempt == 2),
+                sandbox=False,
+            )
+            break
+        except Exception as e:
+            if attempt < 2:
+                print(f"  Browser start failed (attempt {attempt+1}/3): {e!s:.80}. Retrying in 10s…")
+                # Re-clear locks before retry
+                for lock in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+                    p = Path(CHROME_PROFILE) / lock
+                    if p.exists() or p.is_symlink():
+                        p.unlink()
+                await asyncio.sleep(10)
+            else:
+                raise
 
     try:
         print(f"Fetching CGD blog listing…")
@@ -172,6 +246,7 @@ async def main():
         print(f"Found {len(entries)} posts on listing page.")
 
         new_files = []
+        new_titles = []
         for entry in entries:
             url = entry["url"]
             if url in processed:
@@ -180,12 +255,13 @@ async def main():
             title = entry["title"]
             print(f"\nProcessing: {title}")
 
-            text, authors = await fetch_article(browser, url)
+            text, authors, pub_date = await fetch_article(browser, url)
             if not text:
                 continue
 
             by_line = f" by {authors}" if authors else ""
-            intro = f"This is an automated reading of a blog post from the Center for Global Development: {title}{by_line}."
+            date_line = f", published {pub_date}" if pub_date else ""
+            intro = f"This is an automated reading of a blog post from the Center for Global Development: {title}{by_line}{date_line}."
             outro = "Thank you for listening to this audio from the Center for Global Development. For more on our research, visit cgdev.org."
             full_text = f"{intro} {text} {outro}"
             filename = make_filename(title)
@@ -210,6 +286,7 @@ async def main():
             }
             save_processed(processed)  # save after each article so restarts resume
             new_files.append(audio_path)
+            new_titles.append(title)
 
     finally:
         browser.stop()
@@ -220,7 +297,7 @@ async def main():
 
     # Enforce episode cap
     if len(processed) > MAX_EPISODES:
-        sorted_eps = sorted(processed.items(), key=lambda kv: kv[1]["pub_date"])
+        sorted_eps = sorted(processed.items(), key=lambda kv: pub_ts(kv[1]["pub_date"]))  # real dates, not weekday-first strings
         to_remove = sorted_eps[:len(processed) - MAX_EPISODES]
         for url_key, ep in to_remove:
             old_file = AUDIO_DIR / ep["filename"]
@@ -234,10 +311,7 @@ async def main():
     save_processed(processed)
     FEED_FILE.write_text(generate_feed(processed), encoding="utf-8")
 
-    recent_titles = [processed[f.name.replace('.mp3','')]['title'] if f.name.replace('.mp3','') in processed
-                     else list(processed.values())[-1]['title']
-                     for f in new_files[:3]]
-    commit_msg = f"Add {len(new_files)} episode(s): {', '.join(t[:35] for t in recent_titles)}"
+    commit_msg = f"Add {len(new_files)} episode(s): {', '.join(t[:35] for t in new_titles[:3])}"
     git_push(new_files, commit_msg)
 
     print(f"\nDone. {len(new_files)} new episode(s) pushed.")
